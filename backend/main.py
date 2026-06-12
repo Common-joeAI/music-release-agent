@@ -100,6 +100,7 @@ FILES:
 Generate a JSON object with these exact fields:
 {{
   "release_title": "catchy, memorable title for the {'album' if is_album else 'single'}",
+  "artist": "Common-Joe",
   "genre": "primary genre (e.g. Electronic, Hip-Hop, Ambient, Pop, R&B)",
   "subgenre": "more specific subgenre",
   "mood": "2-3 mood descriptors comma separated (e.g. Euphoric, Melancholic, Energetic)",
@@ -121,6 +122,7 @@ Generate a JSON object with these exact fields:
         stem = tracks_info[0]["filename"].rsplit(".", 1)[0] if tracks_info else "Untitled"
         return {
             "release_title": stem.replace("_", " ").replace("-", " ").title(),
+            "artist": "Common-Joe",
             "genre": "Electronic",
             "subgenre": "Ambient",
             "mood": "Atmospheric, Cinematic",
@@ -139,7 +141,10 @@ def generate_album_art(meta, output_path: Path, session_id):
     # Try multiple image gen endpoints
     groq_key = os.environ.get("GROQ_API_KEY", "")
     
-    prompt = meta.get("image_prompt", f"Abstract album cover art for {meta.get('release_title','Music')} — {meta.get('visual_style', 'dark moody atmosphere')}, professional, square format, no text")
+    title = meta.get("release_title", "Music")
+    style = meta.get("visual_style", "dark moody cinematic atmosphere")
+    prompt = meta.get("image_prompt", f"Album cover art for '{title}' by Common-Joe — {style}, professional, square format, no text, no people")
+    prompt = f"{prompt}. Artist: Common-Joe. Square album cover, no text overlaid."
     
     # Use Grok Imagine image generation API
     xai_key = os.environ.get("XAI_API_KEY", "")
@@ -352,6 +357,7 @@ def create_output_package(session_id, tracks_info, meta, art_path, session_dir):
 
 RELEASE TYPE:    {release_type}
 TITLE:           {meta.get('release_title', 'Untitled')}
+ARTIST:          Common-Joe
 GENRE:           {meta.get('genre', '')}
 SUBGENRE:        {meta.get('subgenre', '')}
 MOOD:            {meta.get('mood', '')}
