@@ -141,34 +141,34 @@ def generate_album_art(meta, output_path: Path, session_id):
     
     prompt = meta.get("image_prompt", f"Abstract album cover art for {meta.get('release_title','Music')} — {meta.get('visual_style', 'dark moody atmosphere')}, professional, square format, no text")
     
-    # Try together.ai / fal.ai if keys exist, otherwise create a beautiful SVG placeholder
-    together_key = os.environ.get("TOGETHER_API_KEY", "")
-    fal_key = os.environ.get("FAL_API_KEY", "")
-    
-    if together_key:
+    # Use Grok Aurora image generation API
+    xai_key = os.environ.get("XAI_API_KEY", "")
+    if xai_key:
         try:
             import urllib.request
             body = json.dumps({
-                "model": "black-forest-labs/FLUX.1-schnell-Free",
+                "model": "aurora",
                 "prompt": prompt,
-                "width": 1024, "height": 1024,
-                "steps": 4, "n": 1,
+                "n": 1,
                 "response_format": "b64_json"
             }).encode()
             req = urllib.request.Request(
-                "https://api.together.xyz/v1/images/generations",
+                "https://api.x.ai/v1/images/generations",
                 data=body,
-                headers={"Authorization": f"Bearer {together_key}", "Content-Type": "application/json"},
+                headers={"Authorization": f"Bearer {xai_key}", "Content-Type": "application/json"},
                 method="POST"
             )
             with urllib.request.urlopen(req, timeout=120) as r:
                 data = json.loads(r.read())
                 img_b64 = data["data"][0]["b64_json"]
-                with open(output_path, "wb") as f:
+                with open(str(output_path).replace(".svg", ".png"), "wb") as f:
                     f.write(base64.b64decode(img_b64))
+                # update output_path reference for caller
+                output_path = Path(str(output_path).replace(".svg", ".png"))
+                print(f"Grok Aurora image generated successfully")
                 return True
         except Exception as e:
-            print(f"Together.ai failed: {e}")
+            print(f"Grok Aurora failed: {e}")
     
     # Generate a beautiful SVG album cover as fallback
     _generate_svg_cover(meta, output_path)
