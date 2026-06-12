@@ -193,6 +193,26 @@ def generate_album_art(meta, output_path: Path, session_id):
             shutil.copy2(str(img_path), str(root_cover))
             size = img_path.stat().st_size
             print(f"Grok Imagine saved: {img_path} ({size} bytes)")
+
+            # Upscale to 5000x5000 using ImageMagick Lanczos
+            try:
+                upscale_path = img_path.parent / f"cover_5000{ext}"
+                upscale_root  = root_cover.parent / f"cover_5000{ext}"
+                up_result = subprocess.run([
+                    "convert", str(img_path),
+                    "-filter", "Lanczos",
+                    "-resize", "5000x5000",
+                    "-quality", "95",
+                    str(upscale_path)
+                ], capture_output=True, text=True, timeout=120)
+                if upscale_path.exists():
+                    shutil.copy2(str(upscale_path), str(upscale_root))
+                    print(f"Upscaled to 5000x5000: {upscale_path} ({upscale_path.stat().st_size // 1024}KB)")
+                else:
+                    print(f"Upscale failed: {up_result.stderr[:200]}")
+            except Exception as ue:
+                print(f"Upscale error (non-fatal): {ue}")
+
             return True
         except Exception as e:
             print(f"Grok Imagine failed: {e}")
@@ -502,27 +522,28 @@ def download_zip(session_id):
 @app.route("/api/artwork/<session_id>")
 def get_artwork(session_id):
     session_dir = OUTPUT_DIR / session_id
-    # Check package folder
+    # Check package folder — prefer 5000px upscaled version
     for pkg in session_dir.glob("RELEASE_*"):
         art_dir = pkg / "artwork"
         if art_dir.exists():
-            for ext in [".png", ".jpg", ".jpeg", ".svg"]:
-                f = art_dir / f"cover{ext}"
-                if f.exists():
-                    if ext == ".svg":
-                        mime = "image/svg+xml"
-                    elif ext in [".jpg", ".jpeg"]:
-                        mime = "image/jpeg"
-                    else:
-                        mime = "image/png"
-                    return send_file(str(f), mimetype=mime)
-    # Fallback to root cover
-    for ext in [".png", ".jpg", ".jpeg", ".svg"]:
-        f = session_dir / f"cover{ext}"
-        if f.exists():
-            if ext in [".jpg", ".jpeg"]:
-                return send_file(str(f), mimetype="image/jpeg")
-            return send_file(str(f))
+            for prefix in ["cover_5000", "cover"]:
+                for ext in [".jpg", ".png", ".jpeg", ".svg"]:
+                    f = art_dir / f"{prefix}{ext}"
+                    if f.exists():
+                        if ext == ".svg":
+                            mime = "image/svg+xml"
+                        elif ext in [".jpg", ".jpeg"]:
+                            mime = "image/jpeg"
+                        else:
+                            mime = "image/png"
+                        return send_file(str(f), mimetype=mime)
+    # Fallback to root cover — prefer 5000px
+    for prefix in ["cover_5000", "cover"]:
+        for ext in [".jpg", ".png", ".jpeg", ".svg"]:
+            f = session_dir / f"{prefix}{ext}"
+            if f.exists():
+                mime = "image/jpeg" if ext in [".jpg", ".jpeg"] else "image/png"
+                return send_file(str(f), mimetype=mime)
     return jsonify({"error": "Not found"}), 404
 
 if __name__ == "__main__":
