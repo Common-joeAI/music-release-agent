@@ -151,11 +151,24 @@ def generate_album_art(meta, output_path: Path, session_id):
     if xai_key:
         try:
             import subprocess, shlex
+            # Build a rich prompt that includes title and artist
+            title = meta.get("release_title", "Untitled")
+            tracks = meta.get("track_titles", [])
+            track_names = ", ".join([t.get("suggested", t.get("original", "")) for t in tracks[:4]]) if tracks else title
+            is_album = len(tracks) > 1
+            release_label = "album" if is_album else "single"
+            rich_prompt = (
+                f"Professional square album cover art for the {release_label} '{title}' "
+                f"by artist Common-Joe. Tracks: {track_names}. "
+                f"{prompt} "
+                f"Style: high-resolution, premium music artwork, no text, no letters, no words."
+            )
             body = json.dumps({
                 "model": "grok-imagine-image-quality",
-                "prompt": prompt,
+                "prompt": rich_prompt,
                 "n": 1,
-                "aspect_ratio": "1:1"
+                "aspect_ratio": "1:1",
+                "resolution": "2k"
             })
             result = subprocess.run([
                 "curl", "-s", "-X", "POST",
@@ -163,8 +176,8 @@ def generate_album_art(meta, output_path: Path, session_id):
                 "-H", "Content-Type: application/json",
                 "-H", f"Authorization: Bearer {xai_key}",
                 "-d", body,
-                "--max-time", "60"
-            ], capture_output=True, text=True, timeout=70)
+                "--max-time", "90"
+            ], capture_output=True, text=True, timeout=100)
             data = json.loads(result.stdout)
             img_data = data["data"][0]
             img_url = img_data["url"]
