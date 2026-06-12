@@ -141,16 +141,16 @@ def generate_album_art(meta, output_path: Path, session_id):
     
     prompt = meta.get("image_prompt", f"Abstract album cover art for {meta.get('release_title','Music')} — {meta.get('visual_style', 'dark moody atmosphere')}, professional, square format, no text")
     
-    # Use Grok Aurora image generation API
+    # Use Grok Imagine image generation API
     xai_key = os.environ.get("XAI_API_KEY", "")
     if xai_key:
         try:
-            import urllib.request
+            import urllib.request, urllib.error
             body = json.dumps({
-                "model": "aurora",
+                "model": "grok-imagine-image-quality",
                 "prompt": prompt,
                 "n": 1,
-                "response_format": "b64_json"
+                "aspect_ratio": "1:1"
             }).encode()
             req = urllib.request.Request(
                 "https://api.x.ai/v1/images/generations",
@@ -160,15 +160,16 @@ def generate_album_art(meta, output_path: Path, session_id):
             )
             with urllib.request.urlopen(req, timeout=120) as r:
                 data = json.loads(r.read())
-                img_b64 = data["data"][0]["b64_json"]
-                with open(str(output_path).replace(".svg", ".png"), "wb") as f:
-                    f.write(base64.b64decode(img_b64))
-                # update output_path reference for caller
-                output_path = Path(str(output_path).replace(".svg", ".png"))
-                print(f"Grok Aurora image generated successfully")
-                return True
+            # Response returns a URL — download it
+            img_url = data["data"][0]["url"]
+            png_path = Path(str(output_path).rsplit(".", 1)[0] + ".png")
+            with urllib.request.urlopen(img_url, timeout=60) as r:
+                with open(png_path, "wb") as f:
+                    f.write(r.read())
+            print(f"Grok Imagine image generated: {png_path}")
+            return True
         except Exception as e:
-            print(f"Grok Aurora failed: {e}")
+            print(f"Grok Imagine failed: {e}")
     
     # Generate a beautiful SVG album cover as fallback
     _generate_svg_cover(meta, output_path)
