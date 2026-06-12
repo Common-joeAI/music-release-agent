@@ -146,40 +146,40 @@ def generate_album_art(meta, output_path: Path, session_id):
     prompt = meta.get("image_prompt", f"Album cover art for '{title}' by Common-Joe — {style}, professional, square format, no text, no people")
     prompt = f"{prompt}. Artist: Common-Joe. Square album cover, no text overlaid."
     
-    # Use Grok Imagine image generation API
+    # Use Grok Imagine via curl (urllib blocked by xAI)
     xai_key = os.environ.get("XAI_API_KEY", "")
     if xai_key:
         try:
-            import urllib.request, urllib.error
+            import subprocess, shlex
             body = json.dumps({
                 "model": "grok-imagine-image-quality",
                 "prompt": prompt,
                 "n": 1,
                 "aspect_ratio": "1:1"
-            }).encode()
-            req = urllib.request.Request(
+            })
+            result = subprocess.run([
+                "curl", "-s", "-X", "POST",
                 "https://api.x.ai/v1/images/generations",
-                data=body,
-                headers={"Authorization": f"Bearer {xai_key}", "Content-Type": "application/json"},
-                method="POST"
-            )
-            with urllib.request.urlopen(req, timeout=120) as r:
-                data = json.loads(r.read())
-            # Response returns a URL — detect extension from mime_type
+                "-H", "Content-Type: application/json",
+                "-H", f"Authorization: Bearer {xai_key}",
+                "-d", body,
+                "--max-time", "60"
+            ], capture_output=True, text=True, timeout=70)
+            data = json.loads(result.stdout)
             img_data = data["data"][0]
             img_url = img_data["url"]
             mime = img_data.get("mime_type", "image/jpeg")
             ext = ".jpg" if "jpeg" in mime else ".png"
+            # Download the image via curl
             img_path = output_path.parent / f"cover{ext}"
-            with urllib.request.urlopen(img_url, timeout=60) as r:
-                raw = r.read()
-            with open(img_path, "wb") as f:
-                f.write(raw)
-            # Also write to root session cover for fallback
+            subprocess.run(["curl", "-sL", img_url, "-o", str(img_path), "--max-time", "60"],
+                           timeout=70, check=True)
+            # Also copy to root session dir as fallback
             root_cover = img_path.parent.parent.parent / f"cover{ext}"
-            with open(root_cover, "wb") as f:
-                f.write(raw)
-            print(f"Grok Imagine image saved: {img_path} ({len(raw)} bytes)")
+            import shutil
+            shutil.copy2(str(img_path), str(root_cover))
+            size = img_path.stat().st_size
+            print(f"Grok Imagine saved: {img_path} ({size} bytes)")
             return True
         except Exception as e:
             print(f"Grok Imagine failed: {e}")
