@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Music Release Prep Agent</title>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #060610;
+      --bg2: #0d0d1f;
+      --bg3: #12122a;
+      --surface: #181830;
+      --surface2: #1e1e3a;
+      --border: rgba(120,100,255,0.15);
+      --border2: rgba(120,100,255,0.3);
+      --accent: #7c5cff;
+      --accent2: #ff5ca8;
+      --accent3: #00e5ff;
+      --text: #e8e8ff;
+      --text2: #9090b8;
+      --text3: #5a5a80;
+      --success: #00e5a0;
+      --error: #ff4466;
+      --glow: rgba(124,92,255,0.4);
+      --glow2: rgba(255,92,168,0.3);
+    }
+
+    * { margin:0; padding:0; box-sizing:border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Animated background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 20% 10%, rgba(124,92,255,0.12) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 80% 90%, rgba(255,92,168,0.08) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 40% at 60% 40%, rgba(0,229,255,0.05) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Header */
+    header {
+      padding: 32px 0 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo {
+      width: 44px; height: 44px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+      box-shadow: 0 0 20px var(--glow);
+      flex-shrink: 0;
+    }
+
+    .header-text h1 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--text) 0%, var(--accent) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .header-text p {
+      font-size: 13px;
+      color: var(--text3);
+      margin-top: 2px;
+    }
+
+    .header-badge {
+      margin-left: auto;
+      background: linear-gradient(135deg, rgba(124,92,255,0.15), rgba(255,92,168,0.1));
+      border: 1px solid var(--border2);
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent);
+      letter-spacing: 0.5px;
+    }
+
+    /* Main layout */
+    main { padding: 40px 0 60px; }
+
+    /* Drop zone */
+    .dropzone-wrapper {
+      margin-bottom: 32px;
+    }
+
+    .dropzone {
+      border: 2px dashed var(--border2);
+      border-radius: 20px;
+      padding: 60px 40px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      background: var(--surface);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .dropzone::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 70% 60% at 50% 50%, rgba(124,92,255,0.05) 0%, transparent 70%);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .dropzone:hover, .dropzone.drag-over {
+      border-color: var(--accent);
+      background: var(--surface2);
+      transform: translateY(-2px);
+      box-shadow: 0 12px 40px rgba(124,92,255,0.15);
+    }
+
+    .dropzone:hover::before, .dropzone.drag-over::before { opacity: 1; }
+
+    .dz-icon {
+      width: 72px; height: 72px;
+      margin: 0 auto 20px;
+      background: linear-gradient(135deg, rgba(124,92,255,0.2), rgba(255,92,168,0.15));
+      border-radius: 20px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 32px;
+      border: 1px solid var(--border2);
+    }
+
+    .dz-title {
+      font-size: 20px;
+      font-weight: 700;
+      font-family: 'Space Grotesk', sans-serif;
+      margin-bottom: 8px;
+    }
+
+    .dz-sub {
+      color: var(--text2);
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+
+    .dz-types {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .dz-types span {
+      background: rgba(124,92,255,0.1);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text3);
+      letter-spacing: 0.5px;
+    }
+
+    /* File list */
+    .file-list {
+      display: none;
+      gap: 10px;
+      flex-direction: column;
+      margin-top: 20px;
+    }
+
+    .file-list.has-files { display: flex; }
+
+    .file-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 16px;
+      animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .file-icon {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .file-info { flex: 1; min-width: 0; }
+    .file-name { font-size: 13px; font-weight: 600; truncate; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .file-size { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+    .file-remove {
+      width: 28px; height: 28px;
+      background: rgba(255,68,102,0.1);
+      border: none; border-radius: 6px;
+      color: var(--error); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+
+    .file-remove:hover { background: rgba(255,68,102,0.2); }
+
+    /* Controls */
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-top: 24px;
+    }
+
+    .btn-process {
+      flex: 1;
+      height: 56px;
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+      border: none;
+      border-radius: 14px;
+      color: white;
+      font-size: 16px;
+      font-weight: 700;
+      font-family: 'Space Grotesk', sans-serif;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      gap: 10px;
+      transition: all 0.3s;
+      box-shadow: 0 4px 24px rgba(124,92,255,0.35);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-process::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.15), transparent);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .btn-process:hover::before { opacity: 1; }
+    .btn-process:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(124,92,255,0.45); }
+    .btn-process:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    .btn-clear {
+      height: 56px; width: 56px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      color: var(--text2);
+      font-size: 20px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+
+    .btn-clear:hover { background: var(--surface); border-color: var(--border2); color: var(--text); }
+
+    /* Progress */
+    .progress-panel {
+      display: none;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 32px;
+      margin-top: 24px;
+    }
+
+    .progress-panel.visible { display: block; animation: fadeIn 0.4s ease; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .progress-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .progress-spinner {
+      width: 32px; height: 32px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .progress-title { font-size: 16px; font-weight: 700; }
+    .progress-sub { font-size: 13px; color: var(--text2); margin-top: 2px; }
+
+    .progress-bar-wrap {
+      height: 6px;
+      background: var(--bg3);
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 10px;
+      transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 0 12px var(--glow);
+    }
+
+    .progress-steps {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .step-pill {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      color: var(--text3);
+      transition: all 0.3s;
+    }
+
+    .step-pill.active {
+      background: rgba(124,92,255,0.15);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .step-pill.done {
+      background: rgba(0,229,160,0.1);
+      border-color: var(--success);
+      color: var(--success);
+    }
+
+    /* Results */
+    .results-panel {
+      display: none;
+      margin-top: 32px;
+    }
+
+    .results-panel.visible { display: block; animation: fadeIn 0.5s ease; }
+
+    .results-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 700px) {
+      .results-grid { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 24px;
+      transition: border-color 0.2s;
+    }
+
+    .card:hover { border-color: var(--border2); }
+
+    .card-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text3);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* Art card */
+    .art-card {
+      grid-row: span 2;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .art-frame {
+      flex: 1;
+      aspect-ratio: 1;
+      border-radius: 16px;
+      overflow: hidden;
+      background: var(--bg3);
+      position: relative;
+      margin-bottom: 16px;
+    }
+
+    .art-frame img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .art-placeholder {
+      width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column;
+      gap: 12px;
+      color: var(--text3);
+      font-size: 14px;
+    }
+
+    .art-placeholder-icon { font-size: 48px; }
+
+    /* Metadata fields */
+    .meta-field {
+      margin-bottom: 14px;
+    }
+
+    .meta-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text3);
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .meta-value {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    .meta-value.large {
+      font-size: 20px;
+      font-weight: 700;
+      font-family: 'Space Grotesk', sans-serif;
+      background: linear-gradient(135deg, var(--text), var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .badge {
+      background: rgba(124,92,255,0.12);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 3px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    .badge.mood { background: rgba(255,92,168,0.1); border-color: rgba(255,92,168,0.2); color: var(--accent2); }
+    .badge.genre { background: rgba(0,229,255,0.08); border-color: rgba(0,229,255,0.2); color: var(--accent3); }
+
+    /* Tracklist */
+    .track-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      transition: background 0.2s;
+    }
+
+    .track-row:hover { background: var(--surface2); }
+
+    .track-num {
+      width: 24px; height: 24px;
+      background: rgba(124,92,255,0.15);
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+
+    .track-name { flex: 1; font-size: 13px; font-weight: 500; }
+    .track-dur { font-size: 11px; color: var(--text3); font-variant-numeric: tabular-nums; }
+
+    /* Description */
+    .desc-text {
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--text2);
+    }
+
+    /* Hashtags */
+    .hashtag-flow {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .hashtag {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 12px;
+      color: var(--accent3);
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .hashtag:hover {
+      background: rgba(0,229,255,0.08);
+      border-color: rgba(0,229,255,0.3);
+    }
+
+    /* Metadata text card - full width */
+    .full-card {
+      grid-column: 1 / -1;
+    }
+
+    .metadata-text {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      line-height: 1.8;
+      color: var(--text2);
+      white-space: pre-wrap;
+      overflow-x: auto;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    /* Action buttons */
+    .action-row {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+
+    .btn-action {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 20px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+      border: none;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .btn-primary-action {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: white;
+      box-shadow: 0 4px 16px rgba(124,92,255,0.3);
+    }
+
+    .btn-primary-action:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(124,92,255,0.4); }
+
+    .btn-secondary-action {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .btn-secondary-action:hover { border-color: var(--border2); background: var(--surface); }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 32px; right: 32px;
+      background: var(--surface2);
+      border: 1px solid var(--success);
+      border-radius: 12px;
+      padding: 12px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--success);
+      display: flex; align-items: center; gap: 8px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      opacity: 0;
+      transform: translateY(16px);
+      transition: all 0.3s;
+      z-index: 999;
+    }
+
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+    /* Error state */
+    .error-panel {
+      display: none;
+      background: rgba(255,68,102,0.08);
+      border: 1px solid rgba(255,68,102,0.3);
+      border-radius: 16px;
+      padding: 20px 24px;
+      margin-top: 20px;
+      color: var(--error);
+      font-size: 14px;
+    }
+
+    .error-panel.visible { display: block; animation: fadeIn 0.3s ease; }
+
+    /* Release type selector */
+    .type-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: linear-gradient(135deg, rgba(124,92,255,0.15), rgba(255,92,168,0.1));
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      padding: 4px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent);
+      margin-top: 16px;
+    }
+
+    .pulse { animation: pulse 2s infinite; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="logo">🎵</div>
+    <div class="header-text">
+      <h1>Music Release Prep Agent</h1>
+      <p>AI-powered release metadata, artwork &amp; packaging</p>
+    </div>
+    <div class="header-badge">AI POWERED</div>
+  </header>
+
+  <main>
+    <!-- Drop Zone -->
+    <div class="dropzone-wrapper">
+      <div class="dropzone" id="dropzone">
+        <div class="dz-icon">🎧</div>
+        <div class="dz-title">Drop your audio files here</div>
+        <div class="dz-sub">One file for a Single · Multiple files for an Album</div>
+        <div class="dz-types">
+          <span>MP3</span><span>WAV</span><span>FLAC</span><span>AAC</span><span>OGG</span><span>M4A</span><span>AIFF</span>
+        </div>
+        <input type="file" id="fileInput" multiple accept="audio/*,.wav,.flac,.aiff,.aif" style="display:none"/>
+      </div>
+
+      <div class="file-list" id="fileList"></div>
+
+      <div id="typeIndicator"></div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+      <button class="btn-process" id="processBtn" disabled>
+        <span>✨</span>
+        <span>Generate Release</span>
+      </button>
+      <button class="btn-clear" id="clearBtn" title="Clear files">✕</button>
+    </div>
+
+    <!-- Progress -->
+    <div class="progress-panel" id="progressPanel">
+      <div class="progress-header">
+        <div class="progress-spinner" id="progressSpinner"></div>
+        <div>
+          <div class="progress-title" id="progressTitle">Processing...</div>
+          <div class="progress-sub" id="progressSub">Initializing agent</div>
+        </div>
+      </div>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar" id="progressBar" style="width:0%"></div>
+      </div>
+      <div class="progress-steps" id="progressSteps">
+        <div class="step-pill" data-step="upload">📤 Upload</div>
+        <div class="step-pill" data-step="analyze">🔍 Analyze</div>
+        <div class="step-pill" data-step="metadata">🧠 AI Metadata</div>
+        <div class="step-pill" data-step="art">🎨 Artwork</div>
+        <div class="step-pill" data-step="package">📦 Package</div>
+        <div class="step-pill" data-step="done">✅ Done</div>
+      </div>
+    </div>
+
+    <!-- Error -->
+    <div class="error-panel" id="errorPanel"></div>
+
+    <!-- Results -->
+    <div class="results-panel" id="resultsPanel">
+      <div class="results-grid" id="resultsGrid"></div>
+
+      <div class="action-row" id="actionRow"></div>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const socket = io();
+let files = [];
+let currentSession = null;
+
+// ── Socket events ──────────────────────────────────────────────
+socket.on("progress", (d) => {
+  if (d.session !== currentSession) return;
+  setProgress(d.message, d.percent, d.step);
+});
+
+socket.on("complete", (d) => {
+  if (d.session !== currentSession) return;
+  setProgress("Release package ready! 🎉", 100, "done");
+  setTimeout(() => showResults(d), 600);
+});
+
+socket.on("error", (d) => {
+  if (d.session !== currentSession) return;
+  showError(d.error);
+});
+
+// ── Drop zone ──────────────────────────────────────────────────
+const dz = document.getElementById("dropzone");
+const fi = document.getElementById("fileInput");
+
+dz.addEventListener("click", () => fi.click());
+dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("drag-over"); });
+dz.addEventListener("dragleave", () => dz.classList.remove("drag-over"));
+dz.addEventListener("drop", e => {
+  e.preventDefault();
+  dz.classList.remove("drag-over");
+  addFiles(Array.from(e.dataTransfer.files));
+});
+fi.addEventListener("change", () => addFiles(Array.from(fi.files)));
+
+function addFiles(newFiles) {
+  const audio = newFiles.filter(f => f.type.startsWith("audio/") || /\.(wav|flac|aiff?|aac|ogg|m4a|mp3|opus)$/i.test(f.name));
+  files = [...files, ...audio];
+  renderFiles();
+}
+
+function formatSize(b) {
+  if (b < 1024) return b + " B";
+  if (b < 1048576) return (b/1024).toFixed(1) + " KB";
+  return (b/1048576).toFixed(1) + " MB";
+}
+
+function renderFiles() {
+  const list = document.getElementById("fileList");
+  const btn = document.getElementById("processBtn");
+  const indicator = document.getElementById("typeIndicator");
+
+  if (files.length === 0) {
+    list.className = "file-list";
+    btn.disabled = true;
+    indicator.innerHTML = "";
+    return;
+  }
+
+  const type = files.length === 1 ? "Single" : "Album";
+  const emoji = files.length === 1 ? "🎵" : "💿";
+
+  list.className = "file-list has-files";
+  list.innerHTML = files.map((f, i) => `
+    <div class="file-item">
+      <div class="file-icon">🎵</div>
+      <div class="file-info">
+        <div class="file-name">${f.name}</div>
+        <div class="file-size">${formatSize(f.size)}</div>
+      </div>
+      <button class="file-remove" onclick="removeFile(${i})">✕</button>
+    </div>
+  `).join("");
+
+  indicator.innerHTML = `<div class="type-indicator">${emoji} Detected: <strong>${type}</strong> · ${files.length} track${files.length > 1 ? "s" : ""}</div>`;
+  btn.disabled = false;
+}
+
+function removeFile(i) {
+  files.splice(i, 1);
+  renderFiles();
+}
+
+document.getElementById("clearBtn").onclick = () => {
+  files = [];
+  renderFiles();
+  document.getElementById("progressPanel").classList.remove("visible");
+  document.getElementById("resultsPanel").classList.remove("visible");
+  document.getElementById("errorPanel").classList.remove("visible");
+};
+
+// ── Process ────────────────────────────────────────────────────
+document.getElementById("processBtn").onclick = async () => {
+  if (!files.length) return;
+
+  const fd = new FormData();
+  files.forEach(f => fd.append("files", f));
+
+  document.getElementById("progressPanel").classList.add("visible");
+  document.getElementById("resultsPanel").classList.remove("visible");
+  document.getElementById("errorPanel").classList.remove("visible");
+  document.getElementById("processBtn").disabled = true;
+
+  setProgress("Uploading files...", 5, "upload");
+
+  try {
+    const res = await fetch("/api/process", { method: "POST", body: fd });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    currentSession = data.session_id;
+  } catch (e) {
+    showError(e.message);
+  }
+};
+
+// ── Progress ───────────────────────────────────────────────────
+const STEPS = ["upload","analyze","metadata","art","package","done"];
+
+function setProgress(msg, pct, step) {
+  document.getElementById("progressTitle").textContent = msg;
+  document.getElementById("progressSub").textContent = step ? `Step: ${step}` : "";
+  document.getElementById("progressBar").style.width = pct + "%";
+
+  const stepIdx = STEPS.indexOf(step);
+  document.querySelectorAll(".step-pill").forEach((el, i) => {
+    el.classList.remove("active", "done");
+    if (i < stepIdx) el.classList.add("done");
+    else if (i === stepIdx) el.classList.add("active");
+  });
+
+  if (step === "done") {
+    document.getElementById("progressSpinner").style.borderTopColor = "var(--success)";
+  }
+}
+
+// ── Results ────────────────────────────────────────────────────
+function showResults(d) {
+  const panel = document.getElementById("resultsPanel");
+  const grid = document.getElementById("resultsGrid");
+  const actionRow = document.getElementById("actionRow");
+  const m = d.metadata;
+  const tracks = d.tracks || [];
+
+  const isAlbum = tracks.length > 1;
+  const trackTitleMap = {};
+  (m.track_titles || []).forEach(t => { trackTitleMap[t.original] = t.suggested; });
+
+  // Build cards
+  grid.innerHTML = `
+    <!-- Album Art Card -->
+    <div class="card art-card">
+      <div class="card-title">🎨 Album Artwork</div>
+      <div class="art-frame">
+        <img id="artImg" src="${d.art_url}?t=${Date.now()}" alt="Album Art" onerror="this.style.display='none';document.getElementById('artFallback').style.display='flex'"/>
+        <div class="art-placeholder" id="artFallback" style="display:none">
+          <div class="art-placeholder-icon">🎵</div>
+          <div>Artwork generated</div>
+        </div>
+      </div>
+      <div style="margin-top:auto">
+        <div class="meta-field">
+          <div class="meta-label">Release Type</div>
+          <div class="badge genre" style="display:inline-block">${isAlbum ? "💿 ALBUM" : "🎵 SINGLE"}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Core Metadata -->
+    <div class="card">
+      <div class="card-title">📋 Release Info</div>
+      <div class="meta-field">
+        <div class="meta-label">Title</div>
+        <div class="meta-value large">${escHtml(m.release_title || "Untitled")}</div>
+      </div>
+      <div class="meta-field">
+        <div class="meta-label">Genre</div>
+        <div class="badge-row">
+          <span class="badge genre">${escHtml(m.genre || "")}</span>
+          ${m.subgenre ? `<span class="badge" style="opacity:0.7">${escHtml(m.subgenre)}</span>` : ""}
+        </div>
+      </div>
+      <div class="meta-field">
+        <div class="meta-label">Mood</div>
+        <div class="badge-row">
+          ${(m.mood || "").split(",").map(s => `<span class="badge mood">${escHtml(s.trim())}</span>`).join("")}
+        </div>
+      </div>
+      <div class="meta-field">
+        <div class="meta-label">Energy</div>
+        <div class="meta-value">${escHtml(m.bpm_feel || "")}</div>
+      </div>
+    </div>
+
+    <!-- Tracklist -->
+    <div class="card">
+      <div class="card-title">🎵 Tracklist</div>
+      ${tracks.map((t, i) => `
+        <div class="track-row">
+          <div class="track-num">${String(i+1).padStart(2,"0")}</div>
+          <div class="track-name">${escHtml(trackTitleMap[t.filename] || t.filename.replace(/\.[^.]+$/, ""))}</div>
+          <div class="track-dur">${t.duration_str || "—"}</div>
+        </div>
+      `).join("")}
+    </div>
+
+    <!-- Description -->
+    <div class="card">
+      <div class="card-title">📝 Description</div>
+      <div class="desc-text">${escHtml(m.description || "")}</div>
+      <div style="margin-top:16px">
+        <div class="card-title" style="margin-bottom:10px">🏷️ Hashtags</div>
+        <div class="hashtag-flow">
+          ${(m.hashtags || "").split(/\s+/).filter(h => h.startsWith("#")).map(h =>
+            `<div class="hashtag" onclick="copyText('${h}')" title="Click to copy">${escHtml(h)}</div>`
+          ).join("")}
+        </div>
+      </div>
+    </div>
+
+    <!-- Raw metadata text -->
+    <div class="card full-card">
+      <div class="card-title" style="margin-bottom:12px">📄 Copy-Paste Metadata Sheet</div>
+      <div class="metadata-text" id="metaText">${escHtml(d.metadata_txt || "")}</div>
+    </div>
+  `;
+
+  // Action buttons
+  actionRow.innerHTML = `
+    <a class="btn-action btn-primary-action" href="${d.zip_url}" download>
+      <span>📦</span> Download Release Package
+    </a>
+    <button class="btn-action btn-secondary-action" onclick="copyMetadata()">
+      <span>📋</span> Copy Metadata
+    </button>
+    <button class="btn-action btn-secondary-action" onclick="resetAll()">
+      <span>🔄</span> New Release
+    </button>
+  `;
+
+  panel.classList.add("visible");
+  panel.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function showError(msg) {
+  const ep = document.getElementById("errorPanel");
+  ep.innerHTML = `⚠️ Error: ${escHtml(msg)}`;
+  ep.classList.add("visible");
+  document.getElementById("processBtn").disabled = false;
+}
+
+function resetAll() {
+  files = [];
+  renderFiles();
+  document.getElementById("progressPanel").classList.remove("visible");
+  document.getElementById("resultsPanel").classList.remove("visible");
+  document.getElementById("errorPanel").classList.remove("visible");
+  document.getElementById("processBtn").disabled = true;
+  currentSession = null;
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+// ── Utilities ──────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+function copyText(t) {
+  navigator.clipboard.writeText(t).then(() => showToast(`Copied: ${t}`));
+}
+
+function copyMetadata() {
+  const el = document.getElementById("metaText");
+  if (el) navigator.clipboard.writeText(el.textContent).then(() => showToast("Metadata copied to clipboard!"));
+}
+
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.innerHTML = `✓ ${msg}`;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 3000);
+}
+</script>
+</body>
+</html>

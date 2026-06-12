@@ -1,0 +1,28 @@
+version: "3.9"
+
+services:
+  music-release-agent:
+    build: .
+    image: music-release-agent:latest
+    container_name: music-release-agent
+    restart: unless-stopped
+    ports:
+      - "7700:7700"
+    environment:
+      - PORT=7700
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - TOGETHER_API_KEY=${TOGETHER_API_KEY:-}
+      - FAL_API_KEY=${FAL_API_KEY:-}
+    volumes:
+      - mra_output:/tmp/mra_output
+      - mra_uploads:/tmp/mra_uploads
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7700/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  mra_output:
+  mra_uploads:
