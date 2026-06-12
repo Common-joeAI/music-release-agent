@@ -106,7 +106,7 @@ Generate a JSON object with these exact fields:
   "bpm_feel": "Slow / Mid-tempo / Upbeat / High-energy",
   "description": "2-3 sentence compelling release description for music platforms",
   "hashtags": "10-15 relevant hashtags with # symbols",
-  "track_titles": [array of {"original": "filename", "suggested": "clean track title"} for each track],
+  "track_titles": [array of {{"original": "filename", "suggested": "clean track title"}} for each track],
   "visual_style": "describe the album art style in detail for image generation — colors, mood, aesthetic, imagery",
   "image_prompt": "detailed DALL-E / Stable Diffusion prompt for a square album cover image"
 }}"""
