@@ -165,13 +165,21 @@ def generate_album_art(meta, output_path: Path, session_id):
             )
             with urllib.request.urlopen(req, timeout=120) as r:
                 data = json.loads(r.read())
-            # Response returns a URL — download it
-            img_url = data["data"][0]["url"]
-            png_path = Path(str(output_path).rsplit(".", 1)[0] + ".png")
+            # Response returns a URL — detect extension from mime_type
+            img_data = data["data"][0]
+            img_url = img_data["url"]
+            mime = img_data.get("mime_type", "image/jpeg")
+            ext = ".jpg" if "jpeg" in mime else ".png"
+            img_path = output_path.parent / f"cover{ext}"
             with urllib.request.urlopen(img_url, timeout=60) as r:
-                with open(png_path, "wb") as f:
-                    f.write(r.read())
-            print(f"Grok Imagine image generated: {png_path}")
+                raw = r.read()
+            with open(img_path, "wb") as f:
+                f.write(raw)
+            # Also write to root session cover for fallback
+            root_cover = img_path.parent.parent.parent / f"cover{ext}"
+            with open(root_cover, "wb") as f:
+                f.write(raw)
+            print(f"Grok Imagine image saved: {img_path} ({len(raw)} bytes)")
             return True
         except Exception as e:
             print(f"Grok Imagine failed: {e}")
@@ -488,12 +496,19 @@ def get_artwork(session_id):
             for ext in [".png", ".jpg", ".jpeg", ".svg"]:
                 f = art_dir / f"cover{ext}"
                 if f.exists():
-                    mime = "image/svg+xml" if ext == ".svg" else "image/png"
+                    if ext == ".svg":
+                        mime = "image/svg+xml"
+                    elif ext in [".jpg", ".jpeg"]:
+                        mime = "image/jpeg"
+                    else:
+                        mime = "image/png"
                     return send_file(str(f), mimetype=mime)
     # Fallback to root cover
-    for ext in [".png", ".jpg", ".svg"]:
+    for ext in [".png", ".jpg", ".jpeg", ".svg"]:
         f = session_dir / f"cover{ext}"
         if f.exists():
+            if ext in [".jpg", ".jpeg"]:
+                return send_file(str(f), mimetype="image/jpeg")
             return send_file(str(f))
     return jsonify({"error": "Not found"}), 404
 
